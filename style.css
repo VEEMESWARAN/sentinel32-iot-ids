@@ -1,0 +1,188 @@
+/* Universal Reset & Variables */
+:root {
+    --bg-primary: #1e2530;
+    --bg-secondary: #252d3a;
+    --bg-header: #2d3748;
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --accent-blue: #38bdf8;
+    --accent-blue-glow: rgba(56, 189, 248, 0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    letter-spacing: -0.01em;
+}
+
+/* Typography & Layout Header */
+.dashboard-title {
+    font-weight: 700;
+    font-size: 2rem;
+    color: var(--text-main);
+    margin-bottom: 6px;
+}
+
+.system-status {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-secondary);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Card Styling */
+.card {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.card-header {
+    background: var(--bg-header);
+    color: var(--text-main);
+    font-weight: 600;
+    font-size: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 14px 20px;
+}
+
+/* Metric Stats Cards */
+.stats-card {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+    border-top: 4px solid var(--accent-blue);
+}
+
+.stats-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+
+.stats-card.danger-card {
+    border-top-color: #ef4444;
+}
+
+.stats-card.warning-card {
+    border-top-color: #f59e0b;
+}
+
+.stats-card h5 {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.stats-card h2 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+
+/* Table Styling */
+.table-responsive {
+    border-radius: 0 0 12px 12px;
+}
+
+.table {
+    margin-bottom: 0;
+    color: var(--text-main);
+    vertical-align: middle;
+}
+
+.table th {
+    background-color: var(--bg-header);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.9rem;
+}
+
+.table-dark {
+    --bs-table-bg: var(--bg-secondary);
+}
+
+.table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Dynamic Badge / Threat Typography Tweaks */
+.badge {
+    padding: 6px 10px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    border-radius: 6px;
+}
+
+/* Status Indicator Animation */
+.status-online {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Clean Media Queries for High Responsiveness */
+@media (max-width: 992px) {
+    .dashboard-title {
+        font-size: 1.75rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-title {
+        font-size: 1.5rem;
+    }
+    .stats-card h2 {
+        font-size: 1.85rem;
+    }
+    .table th, .table td {
+        padding: 10px 14px;
+    }
+}

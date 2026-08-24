@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: sentinel32-iot-ids
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health.php
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sentinel32-db
+          property: connectionString
+      - key: DEVICE_API_KEY
+        sync: false
+      - key: TELEGRAM_ENABLED
+        value: "false"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: APP_TIMEZONE
+        value: Asia/Kuala_Lumpur
+
+databases:
+  - name: sentinel32-db
+    plan: free
+    databaseName: sentinel32
+    user: sentinel32
