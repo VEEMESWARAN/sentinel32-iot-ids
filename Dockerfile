@@ -1,34 +1,59 @@
+# ============================================================
+# SENTINEL32 IoT NETWORK IDS
+# Production Docker Image for Render
+# PHP 8.3 + Apache + PostgreSQL
+# ============================================================
+
 FROM php:8.3-apache
 
-# ============================================================
-# SENTINEL32 - Render Production Docker Image
-# ============================================================
+# ------------------------------------------------------------
+# Install required system packages
+# ------------------------------------------------------------
+# libpq-dev          = PostgreSQL development libraries
+# postgresql-client  = provides the psql command
+# libcurl dev        = required for PHP cURL / Telegram API
+# ------------------------------------------------------------
 
-# Install PostgreSQL libraries, PostgreSQL CLI and CURL
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq-dev \
         postgresql-client \
         libcurl4-openssl-dev \
+        ca-certificates \
     && docker-php-ext-install pdo_pgsql \
     && docker-php-ext-install curl \
-    && a2enmod headers rewrite \
+    && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
+# ------------------------------------------------------------
 # Application directory
+# ------------------------------------------------------------
+
 WORKDIR /var/www/html
 
-# Copy project
+# ------------------------------------------------------------
+# Copy complete Sentinel32 project
+# ------------------------------------------------------------
+
 COPY . /var/www/html
 
-# Make startup script executable
+# ------------------------------------------------------------
+# Permissions
+# ------------------------------------------------------------
+
 RUN chmod +x /var/www/html/docker-entrypoint.sh \
     && chown -R www-data:www-data /var/www/html
 
-# Render uses PORT
+# ------------------------------------------------------------
+# Render default application port
+# ------------------------------------------------------------
+
 ENV PORT=10000
 
 EXPOSE 10000
 
-# Configure Apache for Render's PORT and initialize database
+# ------------------------------------------------------------
+# Container startup
+# ------------------------------------------------------------
+
 ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
