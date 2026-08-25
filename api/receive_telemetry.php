@@ -1,49 +1,236 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__.'/../includes/functions.php';
-requireDeviceKey();
-$d = requestJson();
-$deviceId = cleanText($d['device_id'] ?? '', 50);
-if ($deviceId === '') jsonResponse(['ok'=>false,'error'=>'device_id required'], 422);
 
-$pdo = db();
-$pdo->beginTransaction();
+header('Content-Type: application/json');
+header('Cache-Control: no-store');
+
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/db.php';
+
+requireDeviceAuth();
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+
+    http_response_code(405);
+
+    echo json_encode([
+        'ok' => false,
+        'error' => 'Method not allowed'
+    ]);
+
+    exit;
+}
+
 try {
-    $stmt = $pdo->prepare(
-        "INSERT INTO sensors(device_id,device_name,ip_address,firmware_version,status,last_seen)
-         VALUES(?,?,?,?, 'ONLINE',CURRENT_TIMESTAMP)
-         ON CONFLICT (device_id) DO UPDATE SET
-           device_name=EXCLUDED.device_name,
-           ip_address=EXCLUDED.ip_address,
-           firmware_version=EXCLUDED.firmware_version,
-           status='ONLINE',
-           last_seen=CURRENT_TIMESTAMP"
-    );
+
+    $data =
+        json_decode(
+            file_get_contents('php://input'),
+            true
+        );
+
+    if (!is_array($data)) {
+
+        http_response_code(400);
+
+        echo json_encode([
+            'ok' => false,
+            'error' => 'Invalid JSON'
+        ]);
+
+        exit;
+    }
+
+    $deviceId =
+        trim(
+            (string)($data['device_id'] ?? '')
+        );
+
+    if ($deviceId === '') {
+
+        http_response_code(400);
+
+        echo json_encode([
+            'ok' => false,
+            'error' => 'device_id required'
+        ]);
+
+        exit;
+    }
+
+    // ========================================================
+    // UPDATE SENSOR
+    // ========================================================
+
+    $sensorSQL = "
+        INSERT INTO sensors (
+            device_id,
+            device_name,
+            ip_address,
+            mac_address,
+            firmware_version,
+            status,
+            last_seen
+        )
+        VALUES (
+            :device_id,
+            :device_name,
+            :ip_address,
+            :mac_address,
+            :firmware,
+            'ONLINE',
+            CURRENT_TIMESTAMP
+        )
+
+        ON CONFLICT (device_id)
+
+        DO UPDATE SET
+            device_name =
+                EXCLUDED.device_name,
+
+            ip_address =
+                EXCLUDED.ip_address,
+
+            mac_address =
+                EXCLUDED.mac_address,
+
+            firmware_version =
+                EXCLUDED.firmware_version,
+
+            status =
+                'ONLINE',
+
+            last_seen =
+                CURRENT_TIMESTAMP
+    ";
+
+    $stmt =
+        $pdo->prepare(
+            $sensorSQL
+        );
+
     $stmt->execute([
-        $deviceId,
-        cleanText($d['device_name'] ?? 'ESP32 IDS',100),
-        cleanText($d['ip_address'] ?? '',45) ?: null,
-        cleanText($d['firmware'] ?? '',30) ?: null
+        ':device_id' =>
+            $deviceId,
+
+        ':device_name' =>
+            $data['device_name']
+            ?? 'Sentinel32 ESP32 Gateway',
+
+        ':ip_address' =>
+            $data['ip_address']
+            ?? null,
+
+        ':mac_address' =>
+            $data['mac_address']
+            ?? null,
+
+        ':firmware' =>
+            $data['firmware']
+            ?? null
     ]);
 
-    $stmt = $pdo->prepare(
-        "INSERT INTO telemetry
-        (device_id,packet_count,packets_per_second,management_frames,data_frames,control_frames,
-         probe_frames,deauth_frames,disassociation_frames,unique_devices,avg_rssi,channel_number)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
-    );
+    // ========================================================
+    // INSERT TELEMETRY
+    // ========================================================
+
+    $telemetrySQL = "
+        INSERT INTO telemetry (
+            device_id,
+            packet_count,
+            packets_per_second,
+            management_frames,
+            data_frames,
+            control_frames,
+            probe_frames,
+            deauth_frames,
+            disassociation_frames,
+            unique_devices,
+            average_rssi,
+            wifi_channel,
+            recorded_at
+        )
+
+        VALUES (
+            :device_id,
+            :packet_count,
+            :pps,
+            :management_frames,
+            :data_frames,
+            :control_frames,
+            :probe_frames,
+            :deauth_frames,
+            :disassociation_frames,
+            :unique_devices,
+            :average_rssi,
+            :wifi_channel,
+            CURRENT_TIMESTAMP
+        )
+    ";
+
+    $stmt =
+        $pdo->prepare(
+            $telemetrySQL
+        );
+
     $stmt->execute([
-        $deviceId,(int)($d['packet_count'] ?? 0),(float)($d['pps'] ?? 0),
-        (int)($d['management_frames'] ?? 0),(int)($d['data_frames'] ?? 0),
-        (int)($d['control_frames'] ?? 0),(int)($d['probe_frames'] ?? 0),
-        (int)($d['deauth_frames'] ?? 0),(int)($d['disassociation_frames'] ?? 0),
-        (int)($d['unique_devices'] ?? 0),(float)($d['average_rssi'] ?? 0),
-        (int)($d['channel'] ?? 0)
+        ':device_id' =>
+            $deviceId,
+
+        ':packet_count' =>
+            (int)($data['packet_count'] ?? 0),
+
+        ':pps' =>
+            (float)($data['pps'] ?? 0),
+
+        ':management_frames' =>
+            (int)($data['management_frames'] ?? 0),
+
+        ':data_frames' =>
+            (int)($data['data_frames'] ?? 0),
+
+        ':control_frames' =>
+            (int)($data['control_frames'] ?? 0),
+
+        ':probe_frames' =>
+            (int)($data['probe_frames'] ?? 0),
+
+        ':deauth_frames' =>
+            (int)($data['deauth_frames'] ?? 0),
+
+        ':disassociation_frames' =>
+            (int)($data['disassociation_frames'] ?? 0),
+
+        ':unique_devices' =>
+            (int)($data['unique_devices'] ?? 0),
+
+        ':average_rssi' =>
+            (int)($data['average_rssi'] ?? 0),
+
+        ':wifi_channel' =>
+            (int)($data['channel'] ?? 0)
     ]);
-    $pdo->commit();
-    jsonResponse(['ok'=>true,'message'=>'Telemetry stored']);
-} catch(Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    error_log('Telemetry DB error: '.$e->getMessage());
-    jsonResponse(['ok'=>false,'error'=>'Database error'],500);
+
+    echo json_encode([
+        'ok' => true,
+        'message' =>
+            'Telemetry received',
+        'device_id' =>
+            $deviceId
+    ]);
+
+}
+catch (Throwable $e) {
+
+    error_log(
+        'Telemetry DB error: ' .
+        $e->getMessage()
+    );
+
+    http_response_code(500);
+
+    echo json_encode([
+        'ok' => false,
+        'error' => 'Database error'
+    ]);
 }
