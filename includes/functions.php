@@ -1,29 +1,20 @@
 <?php
 declare(strict_types=1);
 
-/*
- * ============================================================
- * SENTINEL32
- * Common Functions
- * ============================================================
- */
-
 require_once __DIR__ . '/config.php';
 
 
 /*
- * ============================================================
- * JSON RESPONSE
- * ============================================================
- */
+|--------------------------------------------------------------------------
+| JSON RESPONSE
+|--------------------------------------------------------------------------
+*/
 
 function jsonResponse(array $data, int $status = 200): never
 {
     http_response_code($status);
 
-    header(
-        'Content-Type: application/json; charset=utf-8'
-    );
+    header('Content-Type: application/json; charset=utf-8');
 
     echo json_encode(
         $data,
@@ -35,21 +26,16 @@ function jsonResponse(array $data, int $status = 200): never
 
 
 /*
- * ============================================================
- * READ JSON REQUEST
- * ============================================================
- */
+|--------------------------------------------------------------------------
+| READ JSON REQUEST
+|--------------------------------------------------------------------------
+*/
 
 function requestJson(): array
 {
-    $raw =
-        file_get_contents('php://input') ?: '';
+    $raw = file_get_contents('php://input') ?: '';
 
-    $data =
-        json_decode(
-            $raw,
-            true
-        );
+    $data = json_decode($raw, true);
 
     if (!is_array($data)) {
 
@@ -64,40 +50,29 @@ function requestJson(): array
 
 
 /*
- * ============================================================
- * DEVICE API AUTHENTICATION
- * ============================================================
- *
- * ESP32 sends:
- *
- * X-API-Key: YOUR_DEVICE_API_KEY
- *
- * Server reads the expected value using:
- *
- * deviceApiKey()
- *
- * from config.php.
- *
- * ============================================================
- */
+|--------------------------------------------------------------------------
+| DEVICE API AUTHENTICATION
+|--------------------------------------------------------------------------
+|
+| Reads the X-API-Key header sent by the ESP32.
+|
+| Existing deviceApiKey() from config.php is used.
+|
+*/
 
 function requireDeviceKey(): void
 {
     /*
-     * Get expected API key from the existing
-     * Sentinel32 configuration.
+     * Expected key from existing config.php
      */
 
-    $expected =
-        trim(
-            (string)deviceApiKey()
-        );
+    $expected = trim(
+        (string) deviceApiKey()
+    );
 
 
     /*
-     * --------------------------------------------------------
-     * CHECK SERVER CONFIGURATION
-     * --------------------------------------------------------
+     * Make sure server has a configured API key.
      */
 
     if ($expected === '') {
@@ -113,55 +88,59 @@ function requireDeviceKey(): void
     }
 
 
-    /*
-     * --------------------------------------------------------
-     * READ API KEY FROM REQUEST
-     * --------------------------------------------------------
-     */
-
     $key = '';
 
 
     /*
-     * Method 1
-     *
-     * Apache normally converts:
-     *
-     * X-API-Key
-     *
-     * into:
-     *
-     * HTTP_X_API_KEY
+     * METHOD 1
+     * Standard Apache/PHP header mapping.
      */
 
     if (
-        isset($_SERVER['HTTP_X_API_KEY'])
+        isset($_SERVER['HTTP_X_API_KEY']) &&
+        $_SERVER['HTTP_X_API_KEY'] !== ''
     ) {
 
-        $key =
-            trim(
-                (string)
-                $_SERVER['HTTP_X_API_KEY']
-            );
+        $key = trim(
+            (string) $_SERVER['HTTP_X_API_KEY']
+        );
     }
 
 
     /*
-     * --------------------------------------------------------
-     * METHOD 2 - FALLBACK
-     * --------------------------------------------------------
-     *
-     * If Apache/PHP does not populate
-     * HTTP_X_API_KEY, check all HTTP headers.
+     * METHOD 2
+     * Apache environment variable fallback.
+     */
+
+    if ($key === '') {
+
+        $envKey = getenv(
+            'HTTP_X_API_KEY'
+        );
+
+        if (
+            $envKey !== false &&
+            $envKey !== ''
+        ) {
+
+            $key = trim(
+                (string) $envKey
+            );
+        }
+    }
+
+
+    /*
+     * METHOD 3
+     * Apache request headers.
      */
 
     if (
         $key === '' &&
-        function_exists('getallheaders')
+        function_exists('apache_request_headers')
     ) {
 
-        $headers =
-            getallheaders();
+        $headers = apache_request_headers();
 
         if (is_array($headers)) {
 
@@ -172,15 +151,14 @@ function requireDeviceKey(): void
 
                 if (
                     strcasecmp(
-                        (string)$name,
+                        (string) $name,
                         'X-API-Key'
                     ) === 0
                 ) {
 
-                    $key =
-                        trim(
-                            (string)$value
-                        );
+                    $key = trim(
+                        (string) $value
+                    );
 
                     break;
                 }
@@ -190,15 +168,50 @@ function requireDeviceKey(): void
 
 
     /*
-     * --------------------------------------------------------
+     * METHOD 4
+     * Generic PHP getallheaders fallback.
+     */
+
+    if (
+        $key === '' &&
+        function_exists('getallheaders')
+    ) {
+
+        $headers = getallheaders();
+
+        if (is_array($headers)) {
+
+            foreach (
+                $headers as
+                $name => $value
+            ) {
+
+                if (
+                    strcasecmp(
+                        (string) $name,
+                        'X-API-Key'
+                    ) === 0
+                ) {
+
+                    $key = trim(
+                        (string) $value
+                    );
+
+                    break;
+                }
+            }
+        }
+    }
+
+
+    /*
      * HEADER NOT RECEIVED
-     * --------------------------------------------------------
      */
 
     if ($key === '') {
 
         error_log(
-            'Sentinel32 AUTH: X-API-Key header missing.'
+            'Sentinel32 AUTH: X-API-Key header was NOT received.'
         );
 
         jsonResponse([
@@ -209,14 +222,10 @@ function requireDeviceKey(): void
 
 
     /*
-     * --------------------------------------------------------
-     * API KEY DOES NOT MATCH
-     * --------------------------------------------------------
+     * KEY DOES NOT MATCH
      *
-     * IMPORTANT:
-     * Never return the actual API keys.
-     *
-     * Only return their lengths for debugging.
+     * Only lengths are returned.
+     * Actual API keys are never exposed.
      */
 
     if (
@@ -230,32 +239,24 @@ function requireDeviceKey(): void
             'Sentinel32 AUTH: API key mismatch. ' .
             'Received length=' .
             strlen($key) .
-            ', Expected length=' .
+            ', expected length=' .
             strlen($expected)
         );
 
         jsonResponse([
             'ok' => false,
             'error' => 'API key mismatch',
-
-            'received_length' =>
-                strlen($key),
-
-            'expected_length' =>
-                strlen($expected)
+            'received_length' => strlen($key),
+            'expected_length' => strlen($expected)
         ], 401);
     }
 
 
     /*
-     * --------------------------------------------------------
-     * AUTHENTICATION SUCCESSFUL
-     * --------------------------------------------------------
+     * SUCCESS
      *
-     * Do nothing.
-     *
-     * The calling API endpoint will continue
-     * executing normally.
+     * No response is generated here.
+     * heartbeat.php / receive_telemetry.php continues normally.
      */
 
     error_log(
@@ -265,20 +266,19 @@ function requireDeviceKey(): void
 
 
 /*
- * ============================================================
- * CLEAN TEXT
- * ============================================================
- */
+|--------------------------------------------------------------------------
+| CLEAN TEXT
+|--------------------------------------------------------------------------
+*/
 
 function cleanText(
     mixed $value,
     int $max = 255
 ): string
 {
-    $s =
-        trim(
-            (string)$value
-        );
+    $s = trim(
+        (string) $value
+    );
 
     return mb_substr(
         $s,
@@ -289,25 +289,19 @@ function cleanText(
 
 
 /*
- * ============================================================
- * TELEGRAM NOTIFICATION
- * ============================================================
- */
+|--------------------------------------------------------------------------
+| TELEGRAM
+|--------------------------------------------------------------------------
+*/
 
 function sendTelegram(
     string $message
 ): bool
 {
-    $token =
-        telegramBotToken();
+    $token = telegramBotToken();
 
-    $chatId =
-        telegramChatId();
+    $chatId = telegramChatId();
 
-
-    /*
-     * Telegram disabled or configuration missing.
-     */
 
     if (
         !telegramEnabled() ||
@@ -319,19 +313,11 @@ function sendTelegram(
     }
 
 
-    /*
-     * Telegram Bot API endpoint
-     */
-
     $url =
         'https://api.telegram.org/bot' .
         $token .
         '/sendMessage';
 
-
-    /*
-     * Telegram payload
-     */
 
     $payload = [
 
@@ -349,12 +335,7 @@ function sendTelegram(
     ];
 
 
-    /*
-     * CURL request
-     */
-
-    $ch =
-        curl_init($url);
+    $ch = curl_init($url);
 
 
     curl_setopt_array(
@@ -381,28 +362,14 @@ function sendTelegram(
     );
 
 
-    /*
-     * Execute Telegram request
-     */
-
-    $result =
-        curl_exec($ch);
+    $result = curl_exec($ch);
 
 
-    /*
-     * Get HTTP status
-     */
+    $httpCode = curl_getinfo(
+        $ch,
+        CURLINFO_HTTP_CODE
+    );
 
-    $httpCode =
-        curl_getinfo(
-            $ch,
-            CURLINFO_HTTP_CODE
-        );
-
-
-    /*
-     * Determine result
-     */
 
     $ok =
         $result !== false &&
@@ -410,15 +377,10 @@ function sendTelegram(
         $httpCode < 300;
 
 
-    /*
-     * Log Telegram errors
-     */
-
     if (!$ok) {
 
         error_log(
-            'Sentinel32 Telegram: notification failed. ' .
-            'HTTP=' .
+            'Sentinel32 Telegram error. HTTP=' .
             $httpCode
         );
     }
@@ -432,10 +394,10 @@ function sendTelegram(
 
 
 /*
- * ============================================================
- * THREAT CSS CLASS
- * ============================================================
- */
+|--------------------------------------------------------------------------
+| THREAT CSS CLASS
+|--------------------------------------------------------------------------
+*/
 
 function threatClass(
     string $level
